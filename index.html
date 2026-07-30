@@ -94,6 +94,30 @@
   .nav-btn:hover:not(:disabled) { border-color: var(--forest); color: var(--forest); }
   .nav-btn:disabled { opacity: 0.25; cursor: default; }
 
+  .link-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 2px 0 0;
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    text-decoration: underline;
+    padding: 0;
+    white-space: nowrap;
+  }
+  .link-sep {
+    color: var(--line);
+    font-size: 10px;
+  }
+
   .store-name {
     font-family: 'Anton', sans-serif;
     font-size: 26px;
@@ -303,10 +327,12 @@
       <span class="store-sub" id="dayCounter"></span>
       <button class="nav-btn" id="nextBtn" aria-label="Neste dag">›</button>
     </div>
-    <div style="text-align:right; margin-top:-4px;">
-      <button id="settingsBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;">Gemini API-nøkkel</button>
-      <button id="exportBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;margin-left:12px;">Eksporter data</button>
-      <button id="importBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;margin-left:12px;">Importer data</button>
+    <div class="link-row">
+      <button id="settingsBtn" class="link-btn">API-nøkkel</button>
+      <span class="link-sep">·</span>
+      <button id="exportBtn" class="link-btn">Eksport</button>
+      <span class="link-sep">·</span>
+      <button id="importBtn" class="link-btn">Import</button>
       <input type="file" id="importFile" accept=".csv,text/csv" style="display:none;">
     </div>
 
