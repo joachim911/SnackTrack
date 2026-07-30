@@ -296,7 +296,7 @@
       <button class="nav-btn" id="nextBtn" aria-label="Neste dag">›</button>
     </div>
     <div style="text-align:right; margin-top:-4px;">
-      <button id="settingsBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;">API-nøkkel</button>
+      <button id="settingsBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;">Gemini API-nøkkel</button>
     </div>
 
     <div class="store-name">SNACKTRACK</div>
@@ -431,14 +431,14 @@
   }
 
   function getApiKey() {
-    return localStorage.getItem('snacktrack_api_key') || '';
+    return localStorage.getItem('snacktrack_gemini_key') || '';
   }
 
   function promptForApiKey() {
     const current = getApiKey();
-    const key = prompt('Lim inn din Anthropic API-nøkkel (fra console.anthropic.com). Den lagres kun lokalt på denne enheten.', current);
+    const key = prompt('Lim inn din gratis Gemini API-nøkkel (fra aistudio.google.com → Get API key). Den lagres kun lokalt på denne enheten.', current);
     if (key !== null) {
-      localStorage.setItem('snacktrack_api_key', key.trim());
+      localStorage.setItem('snacktrack_gemini_key', key.trim());
     }
   }
 
@@ -451,32 +451,48 @@
       if (!getApiKey()) throw new Error('Ingen API-nøkkel');
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": getApiKey(),
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+        "x-goog-api-key": getApiKey()
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst. Del beskrivelsen i separate matvarer/retter der det er naturlig. For hver del, anslå næringsinnhold basert på vanlige porsjonsstørrelser dersom mengde ikke er oppgitt. Svar KUN med gyldig JSON og ingenting annet - ingen markdown-fences, ingen forklaring. Format: et array av objekter med feltene name (kort norsk beskrivelse, maks 4 ord, med stor forbokstav), kcal (heltall), protein_g (heltall), fat_g (heltall), carb_g (heltall).",
-        messages: [{ role: "user", content: text }]
+        systemInstruction: {
+          parts: [{ text: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst, ofte med mengde (f.eks. '400g yoghurt naturell', '2 kyllingfileter', '1 brødskive'). Del beskrivelsen i separate matvarer der det er naturlig. Bruk oppgitt mengde når den finnes; anslå en vanlig porsjonsstørrelse når mengde mangler. Svar med realistiske norske næringsverdier." }]
+        },
+        contents: [{ role: "user", parts: [{ text: text }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                name: { type: "STRING", description: "Kort norsk beskrivelse, maks 4 ord, med stor forbokstav" },
+                kcal: { type: "INTEGER" },
+                protein_g: { type: "INTEGER" },
+                fat_g: { type: "INTEGER" },
+                carb_g: { type: "INTEGER" }
+              },
+              required: ["name", "kcal", "protein_g", "fat_g", "carb_g"]
+            }
+          }
+        }
       })
     });
+
     if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('snacktrack_api_key');
+      if (response.status === 400 || response.status === 401 || response.status === 403) {
+        localStorage.removeItem('snacktrack_gemini_key');
         throw new Error('Ugyldig API-nøkkel');
       }
       throw new Error('API-feil: ' + response.status);
     }
     const data = await response.json();
-    const raw = data.content.map(b => b.text || "").join("").trim();
-    const clean = raw.replace(/^```json\s*|^```\s*|```\s*$/g, "").trim();
-    const items = JSON.parse(clean);
+    const raw = data.candidates[0].content.parts[0].text.trim();
+    const items = JSON.parse(raw);
     if (!Array.isArray(items)) return [items];
     return items;
   }

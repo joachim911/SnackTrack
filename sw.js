@@ -25,7 +25,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   // Never cache API calls - always go to network for nutrition estimates
-  if (event.request.url.includes('api.anthropic.com')) {
+  if (event.request.url.includes('generativelanguage.googleapis.com')) {
     return;
   }
   event.respondWith(
