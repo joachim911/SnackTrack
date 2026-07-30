@@ -451,48 +451,56 @@
       if (!getApiKey()) throw new Error('Ingen API-nøkkel');
     }
 
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": getApiKey()
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst, ofte med mengde (f.eks. '400g yoghurt naturell', '2 kyllingfileter', '1 brødskive'). Del beskrivelsen i separate matvarer der det er naturlig. Bruk oppgitt mengde når den finnes; anslå en vanlig porsjonsstørrelse når mengde mangler. Svar med realistiske norske næringsverdier." }]
-        },
-        contents: [{ role: "user", parts: [{ text: text }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                name: { type: "STRING", description: "Kort norsk beskrivelse, maks 4 ord, med stor forbokstav" },
-                kcal: { type: "INTEGER" },
-                protein_g: { type: "INTEGER" },
-                fat_g: { type: "INTEGER" },
-                carb_g: { type: "INTEGER" }
-              },
-              required: ["name", "kcal", "protein_g", "fat_g", "carb_g"]
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + encodeURIComponent(apiKey);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst, ofte med mengde (f.eks. '400g yoghurt naturell', '2 kyllingfileter', '1 brødskive'). Del beskrivelsen i separate matvarer der det er naturlig. Bruk oppgitt mengde når den finnes; anslå en vanlig porsjonsstørrelse når mengde mangler. Svar med realistiske norske næringsverdier." }]
+          },
+          contents: [{ role: "user", parts: [{ text: text }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING", description: "Kort norsk beskrivelse, maks 4 ord, med stor forbokstav" },
+                  kcal: { type: "INTEGER" },
+                  protein_g: { type: "INTEGER" },
+                  fat_g: { type: "INTEGER" },
+                  carb_g: { type: "INTEGER" }
+                },
+                required: ["name", "kcal", "protein_g", "fat_g", "carb_g"]
+              }
             }
           }
-        }
-      })
-    });
+        })
+      });
+    } catch (networkErr) {
+      throw new Error('Nettverksfeil - sjekk internettforbindelsen (' + networkErr.message + ')');
+    }
 
     if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).error?.message || ''; } catch (e) {}
       if (response.status === 400 || response.status === 401 || response.status === 403) {
         localStorage.removeItem('snacktrack_gemini_key');
-        throw new Error('Ugyldig API-nøkkel');
+        throw new Error('Ugyldig API-nøkkel (' + response.status + (detail ? ': ' + detail : '') + ')');
       }
-      throw new Error('API-feil: ' + response.status);
+      throw new Error('API-feil ' + response.status + (detail ? ': ' + detail : ''));
     }
     const data = await response.json();
-    const raw = data.candidates[0].content.parts[0].text.trim();
-    const items = JSON.parse(raw);
+    const candidate = data.candidates && data.candidates[0];
+    const raw = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
+    if (!raw) {
+      throw new Error('Tomt svar fra Gemini (finishReason: ' + (candidate && candidate.finishReason) + ')');
+    }
+    const items = JSON.parse(raw.trim());
     if (!Array.isArray(items)) return [items];
     return items;
   }
@@ -525,7 +533,8 @@
       input.value = '';
       setStatus('');
     } catch (e) {
-      setStatus('Klarte ikke å tolke det. Prøv å beskrive det litt annerledes.', true);
+      console.error('SnackTrack feil:', e);
+      setStatus(e.message || 'Klarte ikke å tolke det. Prøv å beskrive det litt annerledes.', true);
     } finally {
       loading = false;
       document.getElementById('addBtn').disabled = false;
