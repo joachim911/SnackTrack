@@ -155,6 +155,14 @@
     letter-spacing: 0;
   }
 
+  .entry-amount {
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--ink-soft);
+    align-self: flex-start;
+    margin-top: 1px;
+  }
+
   .entry-kcal {
     white-space: nowrap;
     font-weight: 700;
@@ -297,6 +305,9 @@
     </div>
     <div style="text-align:right; margin-top:-4px;">
       <button id="settingsBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;">Gemini API-nøkkel</button>
+      <button id="exportBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;margin-left:12px;">Eksporter data</button>
+      <button id="importBtn" style="background:none;border:none;color:var(--ink-soft);font-size:10px;letter-spacing:1px;cursor:pointer;font-family:'Space Mono',monospace;text-decoration:underline;padding:0;margin-left:12px;">Importer data</button>
+      <input type="file" id="importFile" accept=".csv,text/csv" style="display:none;">
     </div>
 
     <div class="store-name">SNACKTRACK</div>
@@ -330,7 +341,7 @@
     <div class="status-line" id="statusLine"></div>
 
     <div class="barcode"></div>
-    <div class="thanks">takk for i dag</div>
+    <a href="https://github.com/joachim911/snacktrack" target="_blank" rel="noopener" class="thanks" style="text-decoration:none; display:block;">github.com/joachim911/snacktrack</a>
   </div>
 </div>
 
@@ -390,6 +401,7 @@
       list.innerHTML = entries.map(e => `
         <div class="entry" data-id="${e.id}" title="Klikk for å fjerne">
           <span class="entry-name">${escapeHtml(e.name)}<span class="time">${e.time || ''}</span></span>
+          <span class="entry-amount">${escapeHtml(e.amount || '')}</span>
           <span class="entry-kcal">${e.kcal}</span>
         </div>
       `).join('');
@@ -444,6 +456,145 @@
 
   document.getElementById('settingsBtn').addEventListener('click', promptForApiKey);
 
+  function exportData() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('log:')) keys.push(k);
+    }
+    keys.sort();
+
+    const rows = [['dato', 'tid', 'matvare', 'mengde', 'kcal', 'protein_g', 'fett_g', 'karbo_g']];
+    keys.forEach(key => {
+      const date = key.slice(4);
+      let dayEntries;
+      try { dayEntries = JSON.parse(localStorage.getItem(key)); } catch (e) { return; }
+      (dayEntries || []).forEach(e => {
+        rows.push([date, e.time || '', e.name || '', e.amount || '', e.kcal || 0, e.protein_g || 0, e.fat_g || 0, e.carb_g || 0]);
+      });
+    });
+
+    if (rows.length === 1) {
+      setStatus('Ingen data å eksportere ennå.', true);
+      return;
+    }
+
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'snacktrack-eksport.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', exportData);
+
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    text = text.replace(/^\uFEFF/, '');
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (c === '"' && next === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
+      } else {
+        if (c === '"') { inQuotes = true; }
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && next === '\n') i++;
+          row.push(field); field = '';
+          if (row.length > 1 || row[0] !== '') rows.push(row);
+          row = [];
+        } else { field += c; }
+      }
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function importData(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let rows;
+      try {
+        rows = parseCSV(reader.result);
+      } catch (e) {
+        setStatus('Klarte ikke å lese filen.', true);
+        return;
+      }
+      if (!rows.length) { setStatus('Fant ingen data i filen.', true); return; }
+
+      const header = rows[0].map(h => h.trim().toLowerCase());
+      const idx = {
+        dato: header.indexOf('dato'),
+        tid: header.indexOf('tid'),
+        navn: header.indexOf('matvare'),
+        mengde: header.indexOf('mengde'),
+        kcal: header.indexOf('kcal'),
+        protein: header.indexOf('protein_g'),
+        fett: header.indexOf('fett_g'),
+        karbo: header.indexOf('karbo_g')
+      };
+      if (idx.dato === -1 || idx.navn === -1) {
+        setStatus('Filen ser ikke ut som en SnackTrack-eksport.', true);
+        return;
+      }
+
+      const byDate = {};
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || row.length < 2) continue;
+        const date = (row[idx.dato] || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        const entry = {
+          id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+          name: (row[idx.navn] || '').trim(),
+          amount: idx.mengde > -1 ? (row[idx.mengde] || '').trim() : '',
+          kcal: idx.kcal > -1 ? Number(row[idx.kcal]) || 0 : 0,
+          protein_g: idx.protein > -1 ? Number(row[idx.protein]) || 0 : 0,
+          fat_g: idx.fett > -1 ? Number(row[idx.fett]) || 0 : 0,
+          carb_g: idx.karbo > -1 ? Number(row[idx.karbo]) || 0 : 0,
+          time: idx.tid > -1 ? (row[idx.tid] || '').trim() : ''
+        };
+        if (!entry.name) continue;
+        (byDate[date] = byDate[date] || []).push(entry);
+      }
+
+      const dates = Object.keys(byDate);
+      if (!dates.length) { setStatus('Fant ingen gyldige rader å importere.', true); return; }
+
+      let count = 0;
+      dates.forEach(date => {
+        const key = 'log:' + date;
+        let existing = [];
+        try { existing = JSON.parse(localStorage.getItem(key)) || []; } catch (e) {}
+        const merged = existing.concat(byDate[date]);
+        localStorage.setItem(key, JSON.stringify(merged));
+        count += byDate[date].length;
+      });
+
+      setStatus('Importerte ' + count + ' varer fordelt på ' + dates.length + ' dager.');
+      loadDay();
+    };
+    reader.onerror = () => setStatus('Klarte ikke å lese filen.', true);
+    reader.readAsText(file, 'utf-8');
+  }
+
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) importData(file);
+    e.target.value = '';
+  });
+
   async function estimateNutrition(text) {
     const apiKey = getApiKey();
     if (!apiKey) {
@@ -459,7 +610,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: {
-            parts: [{ text: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst, ofte med mengde (f.eks. '400g yoghurt naturell', '2 kyllingfileter', '1 brødskive'). Del beskrivelsen i separate matvarer der det er naturlig. Bruk oppgitt mengde når den finnes; anslå en vanlig porsjonsstørrelse når mengde mangler. Svar med realistiske norske næringsverdier." }]
+            parts: [{ text: "Du er en ernæringsassistent. Brukeren beskriver hva de har spist, på norsk, i fritekst, ofte med mengde (f.eks. '400g yoghurt naturell', '2 kyllingfileter', '1 brødskive'). Del beskrivelsen i separate matvarer der det er naturlig. Bruk oppgitt mengde når den finnes; anslå en vanlig porsjonsstørrelse når mengde mangler - oppgi da mengden du la til grunn i 'amount'-feltet. Hold matvarenavnet ('name') og mengden ('amount') strengt adskilt - ikke gjenta mengden i navnet. Svar med realistiske norske næringsverdier." }]
           },
           contents: [{ role: "user", parts: [{ text: text }] }],
           generationConfig: {
@@ -469,13 +620,14 @@
               items: {
                 type: "OBJECT",
                 properties: {
-                  name: { type: "STRING", description: "Kort norsk beskrivelse, maks 4 ord, med stor forbokstav" },
+                  name: { type: "STRING", description: "Kort norsk beskrivelse, maks 4 ord, med stor forbokstav, uten mengde" },
+                  amount: { type: "STRING", description: "Mengden som ble spist, kort format, f.eks. '400 g', '2 stk', '1 skive'" },
                   kcal: { type: "INTEGER" },
                   protein_g: { type: "INTEGER" },
                   fat_g: { type: "INTEGER" },
                   carb_g: { type: "INTEGER" }
                 },
-                required: ["name", "kcal", "protein_g", "fat_g", "carb_g"]
+                required: ["name", "amount", "kcal", "protein_g", "fat_g", "carb_g"]
               }
             }
           }
@@ -521,6 +673,7 @@
         entries.push({
           id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
           name: it.name || text,
+          amount: it.amount || '',
           kcal: it.kcal || 0,
           protein_g: it.protein_g || 0,
           fat_g: it.fat_g || 0,
