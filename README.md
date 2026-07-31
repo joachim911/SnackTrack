@@ -1,6 +1,6 @@
 # SnackTrack
 
-A daily (Norwegian) nutrition log styled as a running grocery receipt. Type what you ate in plain language — Gemini estimates the calories, protein, fat, and carbs for you.
+A daily nutrition log (Norwegian) styled as a running grocery receipt. Type what you ate in plain language — Gemini estimates the calories, protein, fat, and carbs for you.
 
 Built as a lightweight, installable PWA. No backend, no accounts, no tracking. Everything runs in your own browser.
 
@@ -10,13 +10,13 @@ Built as a lightweight, installable PWA. No backend, no accounts, no tracking. E
 
 ## Features
 
--  **Receipt-style daily log** — each day gets its own running "receipt," browsable with the arrows at the top
--  **Free-text logging** — write things like `400g yoghurt naturell` or `2 kyllingfileter`, no manual macro lookup needed
--  **AI-powered estimates** — uses your own free Google Gemini API key to estimate nutrition per entry
--  **Live totals** — calories, protein, fat, and carbs update automatically as you log
--  **Installable PWA** — add it to your home screen and it behaves like a native app, works offline for viewing past logs
--  **100% local data** — everything is stored in your browser's `localStorage`; nothing is ever sent to a server except the nutrition-estimate request (which goes straight to Google, not through this repo)
--  **Export / Import** — back up your full log as a CSV file, and restore it later on any device
+- **Receipt-style daily log** — each day gets its own running "receipt," browsable with the arrows at the top
+- **Free-text logging** — write things like `400g yoghurt naturell` or `2 kyllingfileter`, no manual macro lookup needed
+- **AI-powered estimates** — uses your own free Google Gemini API key to estimate nutrition per entry
+- **Live totals** — calories, protein, fat, and carbs update automatically as you log
+- **Installable PWA** — add it to your home screen and it behaves like a native app, works offline for viewing past logs
+- **100% local data** — everything is stored in your browser's `localStorage`; nothing is ever sent to a server except the nutrition-estimate request (which goes straight to Google, not through this repo)
+- **Export / Import** — back up your full log as a CSV file, and restore it later on any device
 
 ## Getting started
 

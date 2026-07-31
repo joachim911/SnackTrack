@@ -471,7 +471,7 @@
     } else {
       list.innerHTML = entries.map(e => `
         <div class="entry" data-id="${e.id}" title="Klikk for å fjerne">
-          <span class="entry-name">${escapeHtml(e.name)}<span class="time">${e.time || ''}</span></span>
+          <span class="entry-name">${escapeHtml(e.name)}<span class="time">${e.time || ''}${e.protein_g ? ' · ' + Math.round(e.protein_g) + 'g protein' : ''}</span></span>
           <span class="entry-amount">${escapeHtml(e.amount || '')}</span>
           <span class="entry-kcal">${e.kcal}</span>
         </div>
