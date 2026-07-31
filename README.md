@@ -4,7 +4,7 @@ A simple nutrition log in Norwegian with focus on KCAL's and proteins. Styled as
 
 Built as a lightweight, installable PWA. No backend, no accounts, no tracking. Everything runs in your own browser.
 
-**Live app:** https://joachim911.github.io/snacktrack/
+**Live app:** https://joachim911.github.io/SnackTrack/
 
 <img src="screenshots/screenshot.png" alt="SnackTrack app screenshot" width="320">
 
