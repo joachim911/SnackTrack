@@ -1,7 +1,7 @@
 ## SnackTrack
-(Norwegian only)
 
-A daily nutrition log styled as a running grocery receipt. Type what you ate in plain language — Gemini estimates the calories, protein, fat, and carbs for you.
+
+A daily nutrition log (Norwegian language) styled as a running grocery receipt. Type what you ate in plain language — Gemini estimates the calories, protein, fat, and carbs for you.
 
 Built as a lightweight, installable PWA. No backend, no accounts, no tracking. Everything runs in your own browser.
 
