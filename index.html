@@ -291,6 +291,46 @@
   }
   .status-line.error { color: var(--stamp); }
 
+  .undo-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    z-index: 50;
+    max-width: 90vw;
+  }
+  .undo-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+  }
+  .undo-toast button {
+    background: none;
+    border: none;
+    color: var(--stamp);
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+  }
+
   .barcode {
     margin-top: 22px;
     height: 30px;
@@ -369,6 +409,11 @@
     <div class="barcode"></div>
     <a href="https://github.com/joachim911/snacktrack" target="_blank" rel="noopener" class="thanks" style="text-decoration:none; display:block;">github.com/joachim911/snacktrack</a>
   </div>
+</div>
+
+<div class="undo-toast" id="undoToast">
+  <span id="undoText"></span>
+  <button id="undoBtn">ANGRE</button>
 </div>
 
 <script>
@@ -462,11 +507,44 @@
     el.className = 'status-line' + (isError ? ' error' : '');
   }
 
-  async function removeEntry(id) {
-    entries = entries.filter(e => e.id !== id);
+  let undoTimer = null;
+  let lastRemoved = null; // { entry, dateKey, index }
+
+  function removeEntry(id) {
+    const index = entries.findIndex(e => e.id === id);
+    if (index === -1) return;
+    const entry = entries[index];
+    entries.splice(index, 1);
     render();
-    await saveDay();
+    saveDay();
+
+    lastRemoved = { entry, dateKey: dateKey(currentDate), index };
+    showUndoToast(entry.name);
   }
+
+  function showUndoToast(name) {
+    const toast = document.getElementById('undoToast');
+    document.getElementById('undoText').textContent = 'Fjernet: ' + name;
+    toast.classList.add('show');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => {
+      toast.classList.remove('show');
+      lastRemoved = null;
+    }, 5000);
+  }
+
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    if (!lastRemoved) return;
+    clearTimeout(undoTimer);
+    document.getElementById('undoToast').classList.remove('show');
+    if (lastRemoved.dateKey === dateKey(currentDate)) {
+      const i = Math.min(lastRemoved.index, entries.length);
+      entries.splice(i, 0, lastRemoved.entry);
+      render();
+      saveDay();
+    }
+    lastRemoved = null;
+  });
 
   function getApiKey() {
     return localStorage.getItem('snacktrack_gemini_key') || '';
