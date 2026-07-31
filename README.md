@@ -1,4 +1,5 @@
-SnackTrack (Norwegian only)
+## SnackTrack
+(Norwegian only)
 
 A daily nutrition log styled as a running grocery receipt. Type what you ate in plain language — Gemini estimates the calories, protein, fat, and carbs for you.
 
